@@ -1,0 +1,4 @@
+name: CombatLens
+version: '1.0-SNAPSHOT'
+main: io.github.ItsRavensLand.combatLens.CombatLens
+api-version: '1.21'
