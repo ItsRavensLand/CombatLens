@@ -15,8 +15,6 @@ public class CombatManager {
     private final Map<UUID, CombatSession> activeSessions = new HashMap<>();
     private final Map<UUID, List<CombatSession>> combatHistory = new HashMap<>();
 
-    private static final int MAX_HISTORY = 10;
-
     public static CombatManager getInstance() {
         if (instance == null) instance = new CombatManager();
         return instance;
@@ -28,7 +26,6 @@ public class CombatManager {
         CombatSession playerSession = new CombatSession(player, opponent);
         CombatSession opponentSession = new CombatSession(opponent, player);
 
-        // snapshot active effects at fight start
         for (PotionEffect effect : player.getActivePotionEffects()) {
             String effectName = formatEffect(effect);
             playerSession.addPlayerEffect(effectName);
@@ -88,14 +85,14 @@ public class CombatManager {
             saveToHistory(opponent.getUniqueId(), opponentSession);
         }
 
+        String outMsg = ConfigManager.getInstance().getOutOfCombatMessage();
         player.sendActionBar(
-                Component.text("You are no longer in combat", NamedTextColor.GREEN)
+                Component.text(outMsg, NamedTextColor.GREEN)
                         .decoration(TextDecoration.ITALIC, false)
         );
         if (opponent.isOnline()) {
             opponent.sendActionBar(
-                    Component.text("You are no longer in combat", NamedTextColor.GREEN)
-                            .decoration(TextDecoration.ITALIC, false)
+                    Component.text(outMsg, NamedTextColor.GREEN).decoration(TextDecoration.ITALIC, false)
             );
         }
     }
@@ -111,7 +108,7 @@ public class CombatManager {
         }
 
         player.sendActionBar(
-                Component.text("You are no longer in combat", NamedTextColor.GREEN)
+                Component.text(ConfigManager.getInstance().getOutOfCombatMessage(), NamedTextColor.GREEN)
                         .decoration(TextDecoration.ITALIC, false)
         );
     }
@@ -134,10 +131,14 @@ public class CombatManager {
     }
 
     private void saveToHistory(UUID uuid, CombatSession session) {
+        if (session.getDurationSeconds() < ConfigManager.getInstance().getMinFightDuration()) return;
+
         DatabaseManager.getInstance().saveSession(session);
         combatHistory.computeIfAbsent(uuid, k -> new ArrayList<>()).add(0, session);
         List<CombatSession> history = combatHistory.get(uuid);
-        if (history.size() > MAX_HISTORY) history.remove(history.size() - 1);
+        if (history.size() > ConfigManager.getInstance().getMaxHistory()) {
+            history.remove(history.size() - 1);
+        }
     }
 
     public List<CombatSession> getHistory(UUID uuid) {

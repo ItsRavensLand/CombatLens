@@ -18,10 +18,10 @@ public class CombatLens extends JavaPlugin {
     public void onEnable() {
         instance = this;
 
+        ConfigManager.getInstance().load();
         DatabaseManager.getInstance().connect();
         getServer().getPluginManager().registerEvents(new CombatListener(), this);
         getServer().getPluginManager().registerEvents(new GUIListener(), this);
-
         CombatTagManager.getInstance().startTagTask();
 
         LifecycleEventManager<Plugin> manager = this.getLifecycleManager();

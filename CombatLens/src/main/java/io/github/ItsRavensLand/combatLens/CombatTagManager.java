@@ -16,8 +16,6 @@ public class CombatTagManager {
 
     private final Map<UUID, Long> lastHitTime = new HashMap<>();
 
-    private static final int TIMEOUT_SECONDS = 15;
-
     public static CombatTagManager getInstance() {
         if (instance == null) instance = new CombatTagManager();
         return instance;
@@ -27,7 +25,8 @@ public class CombatTagManager {
         new BukkitRunnable() {
             @Override
             public void run() {
-                CombatLens.getInstance().getLogger().info("Tag task tick running");
+                if (!ConfigManager.getInstance().isCombatTagEnabled()) return;
+
                 for (Player player : CombatLens.getInstance().getServer().getOnlinePlayers()) {
                     if (!CombatManager.getInstance().isInCombat(player)) continue;
 
@@ -35,13 +34,13 @@ public class CombatTagManager {
                     if (session == null) continue;
 
                     if (!lastHitTime.containsKey(player.getUniqueId())) {
-                        showActionBar(player, session, TIMEOUT_SECONDS);
+                        showActionBar(player, session, ConfigManager.getInstance().getTimeout());
                         continue;
                     }
 
                     long lastHit = lastHitTime.get(player.getUniqueId());
                     long secondsSinceHit = (System.currentTimeMillis() - lastHit) / 1000;
-                    long remaining = TIMEOUT_SECONDS - secondsSinceHit;
+                    long remaining = ConfigManager.getInstance().getTimeout() - secondsSinceHit;
 
                     if (remaining <= 0) {
                         handleTimeout(player);
@@ -69,13 +68,13 @@ public class CombatTagManager {
                 ? mins + ":" + String.format("%02d", secs)
                 : secs + "s";
 
+        String message = ConfigManager.getInstance().getInCombatMessage()
+                .replace("{player}", session.getOpponentName());
+
         player.sendActionBar(
-                Component.text("In Combat with ", NamedTextColor.RED)
+                Component.text(message, NamedTextColor.RED)
                         .decoration(TextDecoration.ITALIC, false)
-                        .append(Component.text(session.getOpponentName(), NamedTextColor.WHITE)
-                                .decoration(TextDecoration.BOLD, true))
-                        .append(Component.text(" | ", NamedTextColor.DARK_GRAY)
-                                .decoration(TextDecoration.BOLD, false))
+                        .append(Component.text("  |  ", NamedTextColor.DARK_GRAY))
                         .append(Component.text(timer, remaining <= 5
                                         ? NamedTextColor.RED
                                         : NamedTextColor.YELLOW)

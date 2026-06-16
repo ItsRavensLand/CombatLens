@@ -1,0 +1,11 @@
+combat:
+  timeout: 15
+  min-fight-duration: 5
+  max-history: 10
+
+combat-tag:
+  enabled: true
+
+messages:
+  in-combat: "In Combat with {player}"
+  out-of-combat: "You are no longer in combat"
