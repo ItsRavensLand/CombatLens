@@ -24,14 +24,14 @@ public class CombatManager {
         CombatSession playerSession = new CombatSession(player, opponent);
         CombatSession opponentSession = new CombatSession(opponent, player);
 
-        // player effects -> playerSession as player, opponentSession as opponent
+
         for (PotionEffect effect : player.getActivePotionEffects()) {
             String effectName = formatEffect(effect);
             playerSession.addPlayerEffect(effectName);
             opponentSession.addOpponentEffect(effectName);
         }
 
-        // opponent effects -> opponentSession as player, playerSession as opponent
+
         for (PotionEffect effect : opponent.getActivePotionEffects()) {
             String effectName = formatEffect(effect);
             opponentSession.addPlayerEffect(effectName);
