@@ -1,7 +1,11 @@
 package io.github.ItsRavensLand.combatLens;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffect;
+
 import java.util.*;
 
 public class CombatManager {
@@ -24,14 +28,12 @@ public class CombatManager {
         CombatSession playerSession = new CombatSession(player, opponent);
         CombatSession opponentSession = new CombatSession(opponent, player);
 
-
+        // snapshot active effects at fight start
         for (PotionEffect effect : player.getActivePotionEffects()) {
             String effectName = formatEffect(effect);
             playerSession.addPlayerEffect(effectName);
             opponentSession.addOpponentEffect(effectName);
         }
-
-
         for (PotionEffect effect : opponent.getActivePotionEffects()) {
             String effectName = formatEffect(effect);
             opponentSession.addPlayerEffect(effectName);
@@ -40,6 +42,9 @@ public class CombatManager {
 
         activeSessions.put(player.getUniqueId(), playerSession);
         activeSessions.put(opponent.getUniqueId(), opponentSession);
+
+        CombatTagManager.getInstance().registerHit(player.getUniqueId());
+        CombatTagManager.getInstance().registerHit(opponent.getUniqueId());
 
         CombatLens.getInstance().getLogger().info(
                 player.getName() + " vs " + opponent.getName() + " - Combat started!"
@@ -52,6 +57,9 @@ public class CombatManager {
 
         if (attackerSession != null) attackerSession.addPlayerHit(damage, isCritical);
         if (victimSession != null) victimSession.addOpponentHit(damage, isCritical);
+
+        CombatTagManager.getInstance().registerHit(attacker.getUniqueId());
+        CombatTagManager.getInstance().registerHit(victim.getUniqueId());
     }
 
     public void endCombat(Player player, Player opponent,
@@ -60,6 +68,9 @@ public class CombatManager {
 
         CombatSession playerSession = activeSessions.remove(player.getUniqueId());
         CombatSession opponentSession = activeSessions.remove(opponent.getUniqueId());
+
+        CombatTagManager.getInstance().clearTag(player.getUniqueId());
+        CombatTagManager.getInstance().clearTag(opponent.getUniqueId());
 
         if (playerSession != null) {
             playerSession.setPlayerEndHp((int) player.getHealth());
@@ -76,15 +87,33 @@ public class CombatManager {
             opponentSession.finish(opponentWinType);
             saveToHistory(opponent.getUniqueId(), opponentSession);
         }
+
+        player.sendActionBar(
+                Component.text("You are no longer in combat", NamedTextColor.GREEN)
+                        .decoration(TextDecoration.ITALIC, false)
+        );
+        if (opponent.isOnline()) {
+            opponent.sendActionBar(
+                    Component.text("You are no longer in combat", NamedTextColor.GREEN)
+                            .decoration(TextDecoration.ITALIC, false)
+            );
+        }
     }
 
     public void endCombatSingle(Player player, CombatSession.WinType winType) {
         CombatSession session = activeSessions.remove(player.getUniqueId());
+        CombatTagManager.getInstance().clearTag(player.getUniqueId());
+
         if (session != null) {
             session.setPlayerEndHp((int) player.getHealth());
             session.finish(winType);
             saveToHistory(player.getUniqueId(), session);
         }
+
+        player.sendActionBar(
+                Component.text("You are no longer in combat", NamedTextColor.GREEN)
+                        .decoration(TextDecoration.ITALIC, false)
+        );
     }
 
     public void handleDisconnect(Player player) {
@@ -100,6 +129,7 @@ public class CombatManager {
                     CombatSession.WinType.LOGOUT);
         } else {
             activeSessions.remove(player.getUniqueId());
+            CombatTagManager.getInstance().clearTag(player.getUniqueId());
         }
     }
 

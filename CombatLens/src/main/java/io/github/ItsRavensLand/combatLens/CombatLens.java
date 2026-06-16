@@ -22,6 +22,8 @@ public class CombatLens extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new CombatListener(), this);
         getServer().getPluginManager().registerEvents(new GUIListener(), this);
 
+        CombatTagManager.getInstance().startTagTask();
+
         LifecycleEventManager<Plugin> manager = this.getLifecycleManager();
         manager.registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             Commands commands = event.registrar();
