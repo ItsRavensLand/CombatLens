@@ -69,11 +69,7 @@ public class CombatSession {
     private int playerTotemsPopped;
     private int opponentTotemsPopped;
 
-    // Inventory snapshots
-    private int playerStartGapples;
-    private int opponentStartGapples;
-    private int playerStartNotchApples;
-    private int opponentStartNotchApples;
+    // Totem snapshot
     private int playerStartTotems;
     private int opponentStartTotems;
 
@@ -131,15 +127,8 @@ public class CombatSession {
         this.opponentHighestSharpness = getSharpnessLevel(opponent);
         this.playerHighestProtection = getProtectionLevel(player);
         this.opponentHighestProtection = getProtectionLevel(opponent);
-
-        // inventory snapshot
-        this.playerStartGapples = countItem(player, Material.GOLDEN_APPLE);
-        this.opponentStartGapples = countItem(opponent, Material.GOLDEN_APPLE);
-        this.playerStartNotchApples = countItem(player, Material.ENCHANTED_GOLDEN_APPLE);
-        this.opponentStartNotchApples = countItem(opponent, Material.ENCHANTED_GOLDEN_APPLE);
         this.playerStartTotems = countItem(player, Material.TOTEM_OF_UNDYING);
         this.opponentStartTotems = countItem(opponent, Material.TOTEM_OF_UNDYING);
-
         this.finished = false;
     }
 
@@ -156,12 +145,8 @@ public class CombatSession {
         this.finished = true;
     }
 
-    // calculate used items at fight end
+    // only totems use snapshot now
     public void calculateUsedItems(Player player, Player opponent) {
-        this.playerGapplesUsed = Math.max(0, playerStartGapples - countItem(player, Material.GOLDEN_APPLE));
-        this.opponentGapplesUsed = Math.max(0, opponentStartGapples - countItem(opponent, Material.GOLDEN_APPLE));
-        this.playerNotchApplesUsed = Math.max(0, playerStartNotchApples - countItem(player, Material.ENCHANTED_GOLDEN_APPLE));
-        this.opponentNotchApplesUsed = Math.max(0, opponentStartNotchApples - countItem(opponent, Material.ENCHANTED_GOLDEN_APPLE));
         this.playerTotemsPopped = Math.max(0, playerStartTotems - countItem(player, Material.TOTEM_OF_UNDYING));
         this.opponentTotemsPopped = Math.max(0, opponentStartTotems - countItem(opponent, Material.TOTEM_OF_UNDYING));
     }
@@ -268,6 +253,10 @@ public class CombatSession {
     public void addOpponentHeal(int amount) { this.opponentHealedAmount += amount; }
     public void addPlayerEffect(String effect) { this.playerEffects.add(effect); }
     public void addOpponentEffect(String effect) { this.opponentEffects.add(effect); }
+    public void addPlayerGapple() { this.playerGapplesUsed++; }
+    public void addOpponentGapple() { this.opponentGapplesUsed++; }
+    public void addPlayerNotchApple() { this.playerNotchApplesUsed++; }
+    public void addOpponentNotchApple() { this.opponentNotchApplesUsed++; }
     public void addPlayerArrowShot() { this.playerArrowsShot++; }
     public void addOpponentArrowShot() { this.opponentArrowsShot++; }
     public void addPlayerArrowHit() { this.playerArrowsHit++; }
@@ -294,6 +283,14 @@ public class CombatSession {
     public void overrideOpponentCriticalHits(int v) { this.opponentCriticalHits = v; }
     public void overridePlayerHealedAmount(int v) { this.playerHealedAmount = v; }
     public void overrideOpponentHealedAmount(int v) { this.opponentHealedAmount = v; }
+    public void overridePlayerEffects(String effects) {
+        if (effects == null || effects.isEmpty()) return;
+        for (String e : effects.split(",")) this.playerEffects.add(e.trim());
+    }
+    public void overrideOpponentEffects(String effects) {
+        if (effects == null || effects.isEmpty()) return;
+        for (String e : effects.split(",")) this.opponentEffects.add(e.trim());
+    }
     public void overridePlayerGapples(int v) { this.playerGapplesUsed = v; }
     public void overrideOpponentGapples(int v) { this.opponentGapplesUsed = v; }
     public void overridePlayerNotchApples(int v) { this.playerNotchApplesUsed = v; }
@@ -319,14 +316,6 @@ public class CombatSession {
     public void overridePlayerHunger(float v) { this.playerHungerOnStart = v; }
     public void overrideOpponentHunger(float v) { this.opponentHungerOnStart = v; }
     public void overrideFightWorld(String v) { this.fightWorld = v; }
-    public void overridePlayerEffects(String effects) {
-        if (effects == null || effects.isEmpty()) return;
-        for (String e : effects.split(",")) this.playerEffects.add(e.trim());
-    }
-    public void overrideOpponentEffects(String effects) {
-        if (effects == null || effects.isEmpty()) return;
-        for (String e : effects.split(",")) this.opponentEffects.add(e.trim());
-    }
 
     // getters
     public UUID getPlayerUUID() { return playerUUID; }

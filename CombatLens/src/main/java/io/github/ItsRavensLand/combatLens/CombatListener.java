@@ -1,5 +1,6 @@
 package io.github.ItsRavensLand.combatLens;
 
+import org.bukkit.Material;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -12,6 +13,7 @@ import org.bukkit.event.entity.EntityRegainHealthEvent;
 import org.bukkit.event.entity.EntityShootBowEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.potion.PotionEffect;
@@ -87,6 +89,26 @@ public class CombatListener implements Listener {
         }
     }
 
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onItemConsume(PlayerItemConsumeEvent event) {
+        Player player = event.getPlayer();
+        if (!combatManager.isInCombat(player)) return;
+
+        CombatSession session = combatManager.getActiveSession(player);
+        if (session == null) return;
+
+        boolean isPlayer = session.getPlayerUUID().equals(player.getUniqueId());
+        Material type = event.getItem().getType();
+
+        if (type == Material.GOLDEN_APPLE) {
+            if (isPlayer) session.addPlayerGapple();
+            else session.addOpponentGapple();
+        } else if (type == Material.ENCHANTED_GOLDEN_APPLE) {
+            if (isPlayer) session.addPlayerNotchApple();
+            else session.addOpponentNotchApple();
+        }
+    }
+
     @EventHandler(priority = EventPriority.MONITOR)
     public void onEffectApplied(EntityPotionEffectEvent event) {
         if (!(event.getEntity() instanceof Player player)) return;
@@ -101,10 +123,8 @@ public class CombatListener implements Listener {
         CombatSession session = combatManager.getActiveSession(player);
         if (session == null) return;
 
-        // in their own session they are always "player"
         session.addPlayerEffect(effectName);
 
-        // also add to opponent's session as "opponent effect"
         Player opponent = CombatLens.getInstance().getServer()
                 .getPlayer(session.getOpponentUUID());
         if (opponent != null && opponent.isOnline()) {
