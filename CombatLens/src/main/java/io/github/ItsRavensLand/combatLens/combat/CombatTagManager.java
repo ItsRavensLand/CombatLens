@@ -69,20 +69,35 @@ public class CombatTagManager {
         long mins = remaining / 60;
         long secs = remaining % 60;
         String timer = mins > 0
-            ? mins + ":" + String.format("%02d", secs)
-            : secs + "s";
+                ? mins + ":" + String.format("%02d", secs)
+                : secs + "s";
 
-        String message = ConfigManager.getInstance().getInCombatMessage()
-            .replace("{player}", session.getOpponentName());
+        String template = ConfigManager.getInstance().getInCombatMessage();
+        String[] parts = template.split("\\{player\\}", 2);
+
+        Component message = Component.text(parts[0], NamedTextColor.RED)
+                .decoration(TextDecoration.ITALIC, false);
+
+        message = message.append(
+                Component.text(session.getOpponentName(), NamedTextColor.WHITE)
+                        .decoration(TextDecoration.BOLD, true)
+                        .decoration(TextDecoration.ITALIC, false)
+        );
+
+        if (parts.length > 1) {
+            message = message.append(
+                    Component.text(parts[1], NamedTextColor.RED)
+                            .decoration(TextDecoration.ITALIC, false)
+            );
+        }
 
         player.sendActionBar(
-            Component.text(message, NamedTextColor.RED)
-                .decoration(TextDecoration.ITALIC, false)
-                .append(Component.text("  |  ", NamedTextColor.DARK_GRAY))
-                .append(Component.text(timer, remaining <= 5
-                            ? NamedTextColor.RED
-                            : NamedTextColor.YELLOW)
-                        .decoration(TextDecoration.BOLD, false))
+                message
+                        .append(Component.text("  |  ", NamedTextColor.DARK_GRAY))
+                        .append(Component.text(timer, remaining <= 5
+                                        ? NamedTextColor.RED
+                                        : NamedTextColor.YELLOW)
+                                .decoration(TextDecoration.BOLD, false))
         );
     }
 

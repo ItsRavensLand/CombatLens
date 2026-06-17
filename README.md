@@ -15,6 +15,7 @@ CombatLens has moved past beta. The core tracking system, GUI, combat tag, and c
 When two players fight, CombatLens quietly tracks the entire exchange in the background. Once the fight ends — by a kill, a disconnect, a logout, or simply going quiet for too long — the fight is saved to that player's history, viewable anytime with a single command.
 
 ### Fight History GUI
+![Fight History](screenshots/history-gui.png)
 
 Run `/combatlens` (or `/cl`) to open your fight history. Each entry shows a quick summary: who you fought, how it ended, what weapon you used, where it happened, and how long it lasted.
 
@@ -28,10 +29,17 @@ Click any entry to open the full breakdown:
 - **Timeline** — start time, end time, total duration
 
 Every stat is shown side by side for both you and your opponent.
+![Fight Detail](screenshots/detail-gui.png)
 
 ### Combat Tag
 
 While in combat, an action bar timer shows who you're fighting and how much time is left before the fight times out. The timer turns red in the final seconds as a warning. Fights that end this way are recorded as a timeout rather than a kill or disconnect.
+![Combat Tag Active](screenshots/combat-tag-active.png)
+
+
+
+
+![Combat Tag Ended](screenshots/combat-tag-ended.png)
 
 ### Smart filtering
 
