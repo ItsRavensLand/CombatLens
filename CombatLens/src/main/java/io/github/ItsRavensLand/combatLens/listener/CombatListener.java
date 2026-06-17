@@ -1,5 +1,8 @@
-package io.github.ItsRavensLand.combatLens;
+package io.github.ItsRavensLand.combatLens.listener;
 
+import io.github.ItsRavensLand.combatLens.CombatLens;
+import io.github.ItsRavensLand.combatLens.combat.CombatManager;
+import io.github.ItsRavensLand.combatLens.combat.CombatSession;
 import org.bukkit.Material;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Player;
@@ -18,10 +21,12 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.potion.PotionEffect;
 
+// listens to all combat-related game events and feeds the manager
 public class CombatListener implements Listener {
 
     private final CombatManager combatManager = CombatManager.getInstance();
 
+    // main hit detection, also catches arrows fired by players
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerAttack(EntityDamageByEntityEvent event) {
         if (!(event.getEntity() instanceof Player victim)) return;
@@ -31,7 +36,7 @@ public class CombatListener implements Listener {
         if (event.getDamager() instanceof Player p) {
             attacker = p;
         } else if (event.getDamager() instanceof Arrow arrow &&
-                arrow.getShooter() instanceof Player p) {
+                   arrow.getShooter() instanceof Player p) {
             attacker = p;
             if (combatManager.isInCombat(p)) {
                 CombatSession session = combatManager.getActiveSession(p);
@@ -57,11 +62,17 @@ public class CombatListener implements Listener {
         combatManager.registerHit(attacker, victim, damage, isCritical);
     }
 
+    // counts a miss only if the player is actually holding a weapon,
+    // avoids false misses from clicking with an empty hand
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerInteract(PlayerInteractEvent event) {
         if (event.getAction() != Action.LEFT_CLICK_AIR) return;
+
         Player player = event.getPlayer();
         if (!combatManager.isInCombat(player)) return;
+
+        Material inHand = player.getInventory().getItemInMainHand().getType();
+        if (inHand == Material.AIR) return;
 
         CombatSession session = combatManager.getActiveSession(player);
         if (session == null) return;
@@ -89,6 +100,7 @@ public class CombatListener implements Listener {
         }
     }
 
+    // golden apple and notch apple usage, counted directly off the consume event
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onItemConsume(PlayerItemConsumeEvent event) {
         Player player = event.getPlayer();
@@ -109,11 +121,12 @@ public class CombatListener implements Listener {
         }
     }
 
+    // records any effect gained during the fight, on both sessions
     @EventHandler(priority = EventPriority.MONITOR)
     public void onEffectApplied(EntityPotionEffectEvent event) {
         if (!(event.getEntity() instanceof Player player)) return;
         if (event.getAction() != EntityPotionEffectEvent.Action.ADDED &&
-                event.getAction() != EntityPotionEffectEvent.Action.CHANGED) return;
+            event.getAction() != EntityPotionEffectEvent.Action.CHANGED) return;
         if (!combatManager.isInCombat(player)) return;
 
         PotionEffect effect = event.getNewEffect();
@@ -126,7 +139,7 @@ public class CombatListener implements Listener {
         session.addPlayerEffect(effectName);
 
         Player opponent = CombatLens.getInstance().getServer()
-                .getPlayer(session.getOpponentUUID());
+            .getPlayer(session.getOpponentUUID());
         if (opponent != null && opponent.isOnline()) {
             CombatSession opponentSession = combatManager.getActiveSession(opponent);
             if (opponentSession != null) {
@@ -153,6 +166,7 @@ public class CombatListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPearlThrow(PlayerTeleportEvent event) {
         if (event.getCause() != PlayerTeleportEvent.TeleportCause.ENDER_PEARL) return;
+
         Player player = event.getPlayer();
         if (!combatManager.isInCombat(player)) return;
 
@@ -195,15 +209,15 @@ public class CombatListener implements Listener {
 
         if (killer != null && killer.isOnline()) {
             combatManager.endCombat(killer, victim,
-                    CombatSession.WinType.KILL,
-                    CombatSession.WinType.KILLED);
+                CombatSession.WinType.KILL,
+                CombatSession.WinType.KILLED);
         } else {
             Player opponent = CombatLens.getInstance()
-                    .getServer().getPlayer(session.getOpponentUUID());
+                .getServer().getPlayer(session.getOpponentUUID());
             if (opponent != null && opponent.isOnline()) {
                 combatManager.endCombat(opponent, victim,
-                        CombatSession.WinType.KILL,
-                        CombatSession.WinType.KILLED);
+                    CombatSession.WinType.KILL,
+                    CombatSession.WinType.KILLED);
             }
         }
     }
@@ -215,21 +229,23 @@ public class CombatListener implements Listener {
         combatManager.handleDisconnect(player);
     }
 
+    // crit if airborne and not in a vehicle, matches vanilla crit conditions closely enough
     private boolean isCriticalHit(Player player) {
         return !player.isOnGround()
-                && player.getFallDistance() > 0
-                && !player.isInsideVehicle()
-                && !player.hasPotionEffect(org.bukkit.potion.PotionEffectType.BLINDNESS);
+            && player.getFallDistance() > 0
+            && !player.isInsideVehicle()
+            && !player.hasPotionEffect(org.bukkit.potion.PotionEffectType.BLINDNESS);
     }
 
+    // turns EFFECT_NAME into "Effect Name II"
     private String formatEffect(PotionEffect effect) {
         String name = effect.getType().key().value().replace("_", " ");
         String[] words = name.split(" ");
         StringBuilder result = new StringBuilder();
         for (String word : words) {
             result.append(Character.toUpperCase(word.charAt(0)))
-                    .append(word.substring(1))
-                    .append(" ");
+                  .append(word.substring(1))
+                  .append(" ");
         }
         int level = effect.getAmplifier() + 1;
         return result.toString().trim() + " " + toRoman(level);

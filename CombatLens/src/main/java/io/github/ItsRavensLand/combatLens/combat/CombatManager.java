@@ -1,31 +1,42 @@
-package io.github.ItsRavensLand.combatLens;
+package io.github.ItsRavensLand.combatLens.combat;
 
+import io.github.ItsRavensLand.combatLens.CombatLens;
+import io.github.ItsRavensLand.combatLens.config.ConfigManager;
+import io.github.ItsRavensLand.combatLens.storage.DatabaseManager;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffect;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
+// tracks active fights and owns the in-memory history cache
 public class CombatManager {
 
     private static CombatManager instance;
 
-    private final Map<UUID, CombatSession> activeSessions = new HashMap<>();
-    private final Map<UUID, List<CombatSession>> combatHistory = new HashMap<>();
+    // concurrent maps since hits/quits/disconnects can fire from different ticks
+    private final Map<UUID, CombatSession> activeSessions = new ConcurrentHashMap<>();
+    private final Map<UUID, List<CombatSession>> combatHistory = new ConcurrentHashMap<>();
 
     public static CombatManager getInstance() {
         if (instance == null) instance = new CombatManager();
         return instance;
     }
 
+    // begins tracking a new fight for both players
     public void startCombat(Player player, Player opponent) {
         if (isInCombat(player) || isInCombat(opponent)) return;
 
         CombatSession playerSession = new CombatSession(player, opponent);
         CombatSession opponentSession = new CombatSession(opponent, player);
 
+        // snapshot active effects at fight start
         for (PotionEffect effect : player.getActivePotionEffects()) {
             String effectName = formatEffect(effect);
             playerSession.addPlayerEffect(effectName);
@@ -44,10 +55,11 @@ public class CombatManager {
         CombatTagManager.getInstance().registerHit(opponent.getUniqueId());
 
         CombatLens.getInstance().getLogger().info(
-                player.getName() + " vs " + opponent.getName() + " - Combat started!"
+            player.getName() + " vs " + opponent.getName() + " - Combat started!"
         );
     }
 
+    // records a hit and resets both players' combat tag timers
     public void registerHit(Player attacker, Player victim, int damage, boolean isCritical) {
         CombatSession attackerSession = activeSessions.get(attacker.getUniqueId());
         CombatSession victimSession = activeSessions.get(victim.getUniqueId());
@@ -59,9 +71,10 @@ public class CombatManager {
         CombatTagManager.getInstance().registerHit(victim.getUniqueId());
     }
 
+    // ends a fight between two online players
     public void endCombat(Player player, Player opponent,
-                          CombatSession.WinType playerWinType,
-                          CombatSession.WinType opponentWinType) {
+                           CombatSession.WinType playerWinType,
+                           CombatSession.WinType opponentWinType) {
 
         CombatSession playerSession = activeSessions.remove(player.getUniqueId());
         CombatSession opponentSession = activeSessions.remove(opponent.getUniqueId());
@@ -85,18 +98,11 @@ public class CombatManager {
             saveToHistory(opponent.getUniqueId(), opponentSession);
         }
 
-        String outMsg = ConfigManager.getInstance().getOutOfCombatMessage();
-        player.sendActionBar(
-                Component.text(outMsg, NamedTextColor.GREEN)
-                        .decoration(TextDecoration.ITALIC, false)
-        );
-        if (opponent.isOnline()) {
-            opponent.sendActionBar(
-                    Component.text(outMsg, NamedTextColor.GREEN).decoration(TextDecoration.ITALIC, false)
-            );
-        }
+        sendOutOfCombatMessage(player);
+        if (opponent.isOnline()) sendOutOfCombatMessage(opponent);
     }
 
+    // ends a fight when the opponent is offline or unknown
     public void endCombatSingle(Player player, CombatSession.WinType winType) {
         CombatSession session = activeSessions.remove(player.getUniqueId());
         CombatTagManager.getInstance().clearTag(player.getUniqueId());
@@ -107,29 +113,28 @@ public class CombatManager {
             saveToHistory(player.getUniqueId(), session);
         }
 
-        player.sendActionBar(
-                Component.text(ConfigManager.getInstance().getOutOfCombatMessage(), NamedTextColor.GREEN)
-                        .decoration(TextDecoration.ITALIC, false)
-        );
+        sendOutOfCombatMessage(player);
     }
 
+    // handles a player leaving while in an active fight
     public void handleDisconnect(Player player) {
         CombatSession session = activeSessions.get(player.getUniqueId());
         if (session == null) return;
 
         Player opponent = CombatLens.getInstance().getServer()
-                .getPlayer(session.getOpponentUUID());
+            .getPlayer(session.getOpponentUUID());
 
         if (opponent != null && opponent.isOnline()) {
             endCombat(opponent, player,
-                    CombatSession.WinType.DISCONNECT,
-                    CombatSession.WinType.LOGOUT);
+                CombatSession.WinType.DISCONNECT,
+                CombatSession.WinType.LOGOUT);
         } else {
             activeSessions.remove(player.getUniqueId());
             CombatTagManager.getInstance().clearTag(player.getUniqueId());
         }
     }
 
+    // skips saving fights that were too short to matter
     private void saveToHistory(UUID uuid, CombatSession session) {
         if (session.getDurationSeconds() < ConfigManager.getInstance().getMinFightDuration()) return;
 
@@ -141,6 +146,7 @@ public class CombatManager {
         }
     }
 
+    // returns cached history, loading from database on first request
     public List<CombatSession> getHistory(UUID uuid) {
         if (combatHistory.containsKey(uuid)) return combatHistory.get(uuid);
         List<CombatSession> history = DatabaseManager.getInstance().loadHistory(uuid);
@@ -156,14 +162,22 @@ public class CombatManager {
         return activeSessions.get(player.getUniqueId());
     }
 
+    private void sendOutOfCombatMessage(Player player) {
+        player.sendActionBar(
+            Component.text(ConfigManager.getInstance().getOutOfCombatMessage(), NamedTextColor.GREEN)
+                .decoration(TextDecoration.ITALIC, false)
+        );
+    }
+
+    // turns POTION_EFFECT into "Potion Effect II"
     private String formatEffect(PotionEffect effect) {
         String name = effect.getType().key().value().replace("_", " ");
         String[] words = name.split(" ");
         StringBuilder result = new StringBuilder();
         for (String word : words) {
             result.append(Character.toUpperCase(word.charAt(0)))
-                    .append(word.substring(1))
-                    .append(" ");
+                  .append(word.substring(1))
+                  .append(" ");
         }
         int level = effect.getAmplifier() + 1;
         return result.toString().trim() + " " + toRoman(level);

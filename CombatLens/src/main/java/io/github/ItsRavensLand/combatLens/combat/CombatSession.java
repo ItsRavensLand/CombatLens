@@ -1,4 +1,4 @@
-package io.github.ItsRavensLand.combatLens;
+package io.github.ItsRavensLand.combatLens.combat;
 
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -9,6 +9,7 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.UUID;
 
+// holds all data for a single recorded fight
 public class CombatSession {
 
     public enum WinType {
@@ -27,13 +28,13 @@ public class CombatSession {
     private LocalDateTime startTime;
     private LocalDateTime endTime;
 
-    // HP
+    // hp
     private int playerStartHp;
     private int playerEndHp;
     private int opponentStartHp;
     private int opponentEndHp;
 
-    // Hits
+    // hits
     private int playerHitsDealt;
     private int opponentHitsDealt;
     private int playerMissedHits;
@@ -41,27 +42,27 @@ public class CombatSession {
     private int playerCriticalHits;
     private int opponentCriticalHits;
 
-    // Damage
+    // damage
     private int playerDamageDealt;
     private int opponentDamageDealt;
     private int playerBestHit;
     private int opponentBestHit;
 
-    // Combo
+    // combo
     private int playerMaxCombo;
     private int opponentMaxCombo;
     private int playerCurrentCombo;
     private int opponentCurrentCombo;
 
-    // Healing
+    // healing
     private int playerHealedAmount;
     private int opponentHealedAmount;
 
-    // Effects
+    // active effects
     private final Set<String> playerEffects = new LinkedHashSet<>();
     private final Set<String> opponentEffects = new LinkedHashSet<>();
 
-    // Consumables
+    // consumables
     private int playerGapplesUsed;
     private int opponentGapplesUsed;
     private int playerNotchApplesUsed;
@@ -69,33 +70,33 @@ public class CombatSession {
     private int playerTotemsPopped;
     private int opponentTotemsPopped;
 
-    // Totem snapshot
+    // totem snapshot, used to detect pops
     private int playerStartTotems;
     private int opponentStartTotems;
 
-    // Arrows
+    // arrows
     private int playerArrowsShot;
     private int opponentArrowsShot;
     private int playerArrowsHit;
     private int opponentArrowsHit;
 
-    // Pearls
+    // pearls
     private int playerPearlsThrown;
     private int opponentPearlsThrown;
 
-    // Shield
+    // shield
     private int playerShieldBlocks;
     private int opponentShieldBlocks;
     private boolean playerShieldBroken;
     private boolean opponentShieldBroken;
 
-    // Enchants
+    // enchants
     private int playerHighestSharpness;
     private int opponentHighestSharpness;
     private int playerHighestProtection;
     private int opponentHighestProtection;
 
-    // Misc
+    // misc
     private int playerXpLevel;
     private int opponentXpLevel;
     private float playerHungerOnStart;
@@ -134,8 +135,8 @@ public class CombatSession {
 
     // database load constructor
     public CombatSession(UUID playerUUID, String playerName,
-                         UUID opponentUUID, String opponentName,
-                         int playerStartHp, int opponentStartHp) {
+                          UUID opponentUUID, String opponentName,
+                          int playerStartHp, int opponentStartHp) {
         this.playerUUID = playerUUID;
         this.playerName = playerName;
         this.opponentUUID = opponentUUID;
@@ -145,7 +146,7 @@ public class CombatSession {
         this.finished = true;
     }
 
-    // only totems use snapshot now
+    // diff totem count at fight end
     public void calculateUsedItems(Player player, Player opponent) {
         this.playerTotemsPopped = Math.max(0, playerStartTotems - countItem(player, Material.TOTEM_OF_UNDYING));
         this.opponentTotemsPopped = Math.max(0, opponentStartTotems - countItem(opponent, Material.TOTEM_OF_UNDYING));
@@ -183,14 +184,15 @@ public class CombatSession {
         return maxProt;
     }
 
+    // turns ENUM_NAME into Enum Name
     private String formatMaterial(Material material) {
         String name = material.name().replace("_", " ");
         String[] words = name.split(" ");
         StringBuilder result = new StringBuilder();
         for (String word : words) {
             result.append(word.charAt(0))
-                    .append(word.substring(1).toLowerCase())
-                    .append(" ");
+                  .append(word.substring(1).toLowerCase())
+                  .append(" ");
         }
         return result.toString().trim();
     }
@@ -225,6 +227,7 @@ public class CombatSession {
         return Math.round((double) opponentDamageDealt / opponentHitsDealt * 10.0) / 10.0;
     }
 
+    // hit tracking, also updates combo streaks
     public void addPlayerHit(int damage, boolean isCritical) {
         this.playerHitsDealt++;
         this.playerDamageDealt += damage;
@@ -245,8 +248,10 @@ public class CombatSession {
         if (opponentCurrentCombo > opponentMaxCombo) this.opponentMaxCombo = opponentCurrentCombo;
     }
 
+    // overload kept for database loading, no crit data stored per-hit
     public void addPlayerHit(int damage) { addPlayerHit(damage, false); }
     public void addOpponentHit(int damage) { addOpponentHit(damage, false); }
+
     public void addPlayerMiss() { this.playerMissedHits++; }
     public void addOpponentMiss() { this.opponentMissedHits++; }
     public void addPlayerHeal(int amount) { this.playerHealedAmount += amount; }
@@ -268,7 +273,7 @@ public class CombatSession {
     public void setPlayerShieldBroken() { this.playerShieldBroken = true; }
     public void setOpponentShieldBroken() { this.opponentShieldBroken = true; }
 
-    // database overrides
+    // setters used when rebuilding a session from the database
     public void overridePlayerDamage(int v) { this.playerDamageDealt = v; }
     public void overrideOpponentDamage(int v) { this.opponentDamageDealt = v; }
     public void overridePlayerBestHit(int v) { this.playerBestHit = v; }
@@ -283,14 +288,17 @@ public class CombatSession {
     public void overrideOpponentCriticalHits(int v) { this.opponentCriticalHits = v; }
     public void overridePlayerHealedAmount(int v) { this.playerHealedAmount = v; }
     public void overrideOpponentHealedAmount(int v) { this.opponentHealedAmount = v; }
+
     public void overridePlayerEffects(String effects) {
         if (effects == null || effects.isEmpty()) return;
         for (String e : effects.split(",")) this.playerEffects.add(e.trim());
     }
+
     public void overrideOpponentEffects(String effects) {
         if (effects == null || effects.isEmpty()) return;
         for (String e : effects.split(",")) this.opponentEffects.add(e.trim());
     }
+
     public void overridePlayerGapples(int v) { this.playerGapplesUsed = v; }
     public void overrideOpponentGapples(int v) { this.opponentGapplesUsed = v; }
     public void overridePlayerNotchApples(int v) { this.playerNotchApplesUsed = v; }

@@ -1,7 +1,7 @@
 package io.github.ItsRavensLand.combatLens.gui;
 
-import io.github.ItsRavensLand.combatLens.CombatManager;
-import io.github.ItsRavensLand.combatLens.CombatSession;
+import io.github.ItsRavensLand.combatLens.combat.CombatManager;
+import io.github.ItsRavensLand.combatLens.combat.CombatSession;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -17,18 +17,19 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
+// minimal list view, full detail lives in CombatDetailGUI
 public class CombatHistoryGUI {
 
     private static final DateTimeFormatter FORMATTER =
-            DateTimeFormatter.ofPattern("MMM dd, yyyy  HH:mm");
+        DateTimeFormatter.ofPattern("MMM dd, yyyy  HH:mm");
 
     public static void open(Player player) {
         List<CombatSession> history = CombatManager.getInstance()
-                .getHistory(player.getUniqueId());
+            .getHistory(player.getUniqueId());
 
         Inventory inv = Bukkit.createInventory(null, 54,
-                Component.text("Your Fight History", NamedTextColor.DARK_RED)
-                        .decoration(TextDecoration.BOLD, true));
+            Component.text("Your Fight History", NamedTextColor.DARK_RED)
+                .decoration(TextDecoration.BOLD, true));
 
         fillBorder(inv);
 
@@ -36,7 +37,7 @@ public class CombatHistoryGUI {
             ItemStack noFights = new ItemStack(Material.BARRIER);
             ItemMeta meta = noFights.getItemMeta();
             meta.displayName(Component.text("No fights recorded yet.", NamedTextColor.GRAY)
-                    .decoration(TextDecoration.ITALIC, true));
+                .decoration(TextDecoration.ITALIC, true));
             noFights.setItemMeta(meta);
             inv.setItem(22, noFights);
         } else {
@@ -57,51 +58,52 @@ public class CombatHistoryGUI {
         SkullMeta meta = (SkullMeta) skull.getItemMeta();
 
         boolean won = session.getWinType() == CombatSession.WinType.KILL ||
-                session.getWinType() == CombatSession.WinType.DISCONNECT;
+                      session.getWinType() == CombatSession.WinType.DISCONNECT;
 
         NamedTextColor titleColor = won ? NamedTextColor.GREEN : NamedTextColor.RED;
         String resultText = won ? "Victory" : "Defeat";
 
         meta.displayName(
-                Component.text(resultText + " against ", titleColor)
-                        .decoration(TextDecoration.BOLD, true)
-                        .decoration(TextDecoration.ITALIC, false)
-                        .append(Component.text(session.getOpponentName(), NamedTextColor.WHITE)
-                                .decoration(TextDecoration.BOLD, true))
+            Component.text(resultText + " against ", titleColor)
+                .decoration(TextDecoration.BOLD, true)
+                .decoration(TextDecoration.ITALIC, false)
+                .append(Component.text(session.getOpponentName(), NamedTextColor.WHITE)
+                    .decoration(TextDecoration.BOLD, true))
         );
 
         List<Component> lore = new ArrayList<>();
         lore.add(Component.empty());
         lore.add(
-                Component.text("How it ended  ", NamedTextColor.GRAY)
-                        .decoration(TextDecoration.ITALIC, false)
-                        .append(Component.text(formatWinType(session.getWinType()), NamedTextColor.YELLOW)
-                                .decoration(TextDecoration.BOLD, false))
+            Component.text("How it ended  ", NamedTextColor.GRAY)
+                .decoration(TextDecoration.ITALIC, false)
+                .append(Component.text(formatWinType(session.getWinType()), NamedTextColor.YELLOW)
+                    .decoration(TextDecoration.BOLD, false))
         );
         lore.add(
-                Component.text("Weapon used  ", NamedTextColor.GRAY)
-                        .decoration(TextDecoration.ITALIC, false)
-                        .append(Component.text(session.getPlayerWeapon(), NamedTextColor.AQUA))
+            Component.text("Weapon used  ", NamedTextColor.GRAY)
+                .decoration(TextDecoration.ITALIC, false)
+                .append(Component.text(session.getPlayerWeapon(), NamedTextColor.AQUA))
         );
         lore.add(
-                Component.text("World  ", NamedTextColor.GRAY)
-                        .decoration(TextDecoration.ITALIC, false)
-                        .append(Component.text(session.getFightWorld(), NamedTextColor.WHITE))
-        );
-        lore.add(Component.empty());
-        lore.add(
-                Component.text("Duration  ", NamedTextColor.GRAY)
-                        .decoration(TextDecoration.ITALIC, false)
-                        .append(Component.text(formatDuration(session.getDurationSeconds()), NamedTextColor.GOLD))
-        );
-        lore.add(
-                Component.text("Date  ", NamedTextColor.GRAY)
-                        .decoration(TextDecoration.ITALIC, false).append(Component.text(session.getStartTime().format(FORMATTER), NamedTextColor.WHITE))
+            Component.text("World  ", NamedTextColor.GRAY)
+                .decoration(TextDecoration.ITALIC, false)
+                .append(Component.text(session.getFightWorld(), NamedTextColor.WHITE))
         );
         lore.add(Component.empty());
         lore.add(
-                Component.text("Click to see full breakdown", NamedTextColor.DARK_GRAY)
-                        .decoration(TextDecoration.ITALIC, true)
+            Component.text("Duration  ", NamedTextColor.GRAY)
+                .decoration(TextDecoration.ITALIC, false)
+                .append(Component.text(formatDuration(session.getDurationSeconds()), NamedTextColor.GOLD))
+        );
+        lore.add(
+            Component.text("Date  ", NamedTextColor.GRAY)
+                .decoration(TextDecoration.ITALIC, false)
+                .append(Component.text(session.getStartTime().format(FORMATTER), NamedTextColor.WHITE))
+        );
+        lore.add(Component.empty());
+        lore.add(
+            Component.text("Click to see full breakdown", NamedTextColor.DARK_GRAY)
+                .decoration(TextDecoration.ITALIC, true)
         );
 
         meta.lore(lore);
@@ -121,7 +123,7 @@ public class CombatHistoryGUI {
         for (int i = 17; i < 54; i += 9) inv.setItem(i, border);
     }
 
-    private static String formatWinType(CombatSession.WinType type) {
+    static String formatWinType(CombatSession.WinType type) {
         return switch (type) {
             case KILL -> "Killed the opponent";
             case KILLED -> "Got killed";
@@ -131,7 +133,7 @@ public class CombatHistoryGUI {
         };
     }
 
-    private static String formatDuration(long seconds) {
+    static String formatDuration(long seconds) {
         long mins = seconds / 60;
         long secs = seconds % 60;
         if (mins == 0) return secs + " seconds";

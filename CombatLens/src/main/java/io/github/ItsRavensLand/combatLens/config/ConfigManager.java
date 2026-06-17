@@ -1,5 +1,8 @@
-package io.github.ItsRavensLand.combatLens;
+package io.github.ItsRavensLand.combatLens.config;
 
+import io.github.ItsRavensLand.combatLens.CombatLens;
+
+// reads and caches config.yml values
 public class ConfigManager {
 
     private static ConfigManager instance;

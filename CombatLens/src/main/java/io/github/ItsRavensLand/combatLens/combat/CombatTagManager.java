@@ -1,26 +1,30 @@
-package io.github.ItsRavensLand.combatLens;
+package io.github.ItsRavensLand.combatLens.combat;
 
+import io.github.ItsRavensLand.combatLens.CombatLens;
+import io.github.ItsRavensLand.combatLens.config.ConfigManager;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
+// drives the action bar timer and combat timeouts
 public class CombatTagManager {
 
     private static CombatTagManager instance;
 
-    private final Map<UUID, Long> lastHitTime = new HashMap<>();
+    private final Map<UUID, Long> lastHitTime = new ConcurrentHashMap<>();
 
     public static CombatTagManager getInstance() {
         if (instance == null) instance = new CombatTagManager();
         return instance;
     }
 
+    // ticks every second, checks every online player in combat
     public void startTagTask() {
         new BukkitRunnable() {
             @Override
@@ -65,38 +69,44 @@ public class CombatTagManager {
         long mins = remaining / 60;
         long secs = remaining % 60;
         String timer = mins > 0
-                ? mins + ":" + String.format("%02d", secs)
-                : secs + "s";
+            ? mins + ":" + String.format("%02d", secs)
+            : secs + "s";
 
         String message = ConfigManager.getInstance().getInCombatMessage()
-                .replace("{player}", session.getOpponentName());
+            .replace("{player}", session.getOpponentName());
 
         player.sendActionBar(
-                Component.text(message, NamedTextColor.RED)
-                        .decoration(TextDecoration.ITALIC, false)
-                        .append(Component.text("  |  ", NamedTextColor.DARK_GRAY))
-                        .append(Component.text(timer, remaining <= 5
-                                        ? NamedTextColor.RED
-                                        : NamedTextColor.YELLOW)
-                                .decoration(TextDecoration.BOLD, false))
+            Component.text(message, NamedTextColor.RED)
+                .decoration(TextDecoration.ITALIC, false)
+                .append(Component.text("  |  ", NamedTextColor.DARK_GRAY))
+                .append(Component.text(timer, remaining <= 5
+                            ? NamedTextColor.RED
+                            : NamedTextColor.YELLOW)
+                        .decoration(TextDecoration.BOLD, false))
         );
     }
 
+    // ends the fight on timeout, guarded so both players timing out
+    // in the same tick can't double-trigger endCombat
     private void handleTimeout(Player player) {
+        if (!CombatManager.getInstance().isInCombat(player)) return;
+
         CombatSession session = CombatManager.getInstance().getActiveSession(player);
         if (session == null) return;
 
         Player opponent = CombatLens.getInstance().getServer()
-                .getPlayer(session.getOpponentUUID());
-
-        clearTag(player.getUniqueId());
+            .getPlayer(session.getOpponentUUID());
 
         if (opponent != null && opponent.isOnline()) {
-            clearTag(opponent.getUniqueId());
+            // re-check here too, opponent's own tick may have already ended it
+            if (!CombatManager.getInstance().isInCombat(opponent)) {
+                clearTag(player.getUniqueId());
+                return;
+            }
             CombatManager.getInstance().endCombat(
-                    player, opponent,
-                    CombatSession.WinType.TIMEOUT,
-                    CombatSession.WinType.TIMEOUT
+                player, opponent,
+                CombatSession.WinType.TIMEOUT,
+                CombatSession.WinType.TIMEOUT
             );
         } else {
             CombatManager.getInstance().endCombatSingle(player, CombatSession.WinType.TIMEOUT);

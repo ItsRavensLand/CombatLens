@@ -1,4 +1,8 @@
-package io.github.ItsRavensLand.combatLens;
+package io.github.ItsRavensLand.combatLens.storage;
+
+import io.github.ItsRavensLand.combatLens.CombatLens;
+import io.github.ItsRavensLand.combatLens.combat.CombatSession;
+import io.github.ItsRavensLand.combatLens.config.ConfigManager;
 
 import java.io.File;
 import java.sql.*;
@@ -7,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+// owns the sqlite connection and all fight persistence
 public class DatabaseManager {
 
     private static DatabaseManager instance;
@@ -41,6 +46,17 @@ public class DatabaseManager {
         } catch (SQLException e) {
             CombatLens.getInstance().getLogger().severe("DB disconnect failed: " + e.getMessage());
         }
+    }
+
+    // reopens the connection if it died, used before every query
+    private Connection getConnection() throws SQLException {
+        if (connection == null || connection.isClosed()) {
+            File dataFolder = CombatLens.getInstance().getDataFolder();
+            String url = "jdbc:sqlite:" + dataFolder.getAbsolutePath() + "/combatlens.db";
+            connection = DriverManager.getConnection(url);
+            CombatLens.getInstance().getLogger().warning("Database reconnected after drop.");
+        }
+        return connection;
     }
 
     private void createTables() throws SQLException {
@@ -104,7 +120,7 @@ public class DatabaseManager {
                 duration_seconds INTEGER
             );
         """;
-        try (Statement stmt = connection.createStatement()) {
+        try (Statement stmt = getConnection().createStatement()) {
             stmt.execute(sql);
         }
     }
@@ -138,7 +154,7 @@ public class DatabaseManager {
                 fight_world, win_type, start_time, end_time, duration_seconds
             ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """;
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+        try (PreparedStatement stmt = getConnection().prepareStatement(sql)) {
             stmt.setString(1, session.getPlayerUUID().toString());
             stmt.setString(2, session.getPlayerName());
             stmt.setString(3, session.getOpponentUUID().toString());
@@ -200,16 +216,18 @@ public class DatabaseManager {
         }
     }
 
+    // limit follows config so history table and stored rows stay in sync
     public List<CombatSession> loadHistory(UUID playerUUID) {
         List<CombatSession> history = new ArrayList<>();
         String sql = """
             SELECT * FROM combat_sessions
             WHERE player_uuid = ?
             ORDER BY id DESC
-            LIMIT 10
+            LIMIT ?
         """;
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+        try (PreparedStatement stmt = getConnection().prepareStatement(sql)) {
             stmt.setString(1, playerUUID.toString());
+            stmt.setInt(2, ConfigManager.getInstance().getMaxHistory());
             ResultSet rs = stmt.executeQuery();
             while (rs.next()) {
                 CombatSession session = mapResultSet(rs);
@@ -224,12 +242,12 @@ public class DatabaseManager {
     private CombatSession mapResultSet(ResultSet rs) {
         try {
             CombatSession session = new CombatSession(
-                    UUID.fromString(rs.getString("player_uuid")),
-                    rs.getString("player_name"),
-                    UUID.fromString(rs.getString("opponent_uuid")),
-                    rs.getString("opponent_name"),
-                    rs.getInt("player_start_hp"),
-                    rs.getInt("opponent_start_hp")
+                UUID.fromString(rs.getString("player_uuid")),
+                rs.getString("player_name"),
+                UUID.fromString(rs.getString("opponent_uuid")),
+                rs.getString("opponent_name"),
+                rs.getInt("player_start_hp"),
+                rs.getInt("opponent_start_hp")
             );
 
             session.setPlayerEndHp(rs.getInt("player_end_hp"));
@@ -281,9 +299,9 @@ public class DatabaseManager {
             session.overrideFightWorld(rs.getString("fight_world"));
 
             session.finish(
-                    CombatSession.WinType.valueOf(rs.getString("win_type")),
-                    LocalDateTime.parse(rs.getString("start_time")),
-                    rs.getString("end_time") != null ? LocalDateTime.parse(rs.getString("end_time")) : null
+                CombatSession.WinType.valueOf(rs.getString("win_type")),
+                LocalDateTime.parse(rs.getString("start_time")),
+                rs.getString("end_time") != null ? LocalDateTime.parse(rs.getString("end_time")) : null
             );
 
             return session;
