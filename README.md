@@ -84,7 +84,7 @@ Fight history is stored locally in a SQLite database inside the plugin's data fo
 
 ## Installation
 
-1. Download the latest release jar
+1. Download the Download the [latest release](https://github.com/ItsRavensLand/CombatLens/releases/latest)
 2. Drop it into your server's `plugins` folder
 3. Restart the server
 4. Done — CombatLens starts tracking fights automatically
